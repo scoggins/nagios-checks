@@ -41,6 +41,8 @@ import re
 
 # A UTC class.
 ZERO = timedelta(0)
+
+
 class UTC(tzinfo):
     """UTC"""
 
@@ -53,7 +55,8 @@ class UTC(tzinfo):
     def dst(self, dt):
         return ZERO
 
-#Parse command line arguments
+
+# Parse command line arguments
 parser = argparse.ArgumentParser(description='This script is a Nagios check that \
                                               monitors the age of files that have \
                                               been backed up to an S3 bucket.')
@@ -73,7 +76,7 @@ parser.add_argument('--maxfileage', dest='maxfileage', type=int, default=0,
                     help='Maximum age for files in an S3 bucket in hours. \
                           Default is 0 hours (disabled).')
 
-parser.add_argument('--bucketfolder', dest='bucketfolder', type=str, default='', 
+parser.add_argument('--bucketfolder', dest='bucketfolder', type=str, default='',
                     help='Folder to check inside bucket (optional).')
 ####
 # Add arg option for s3 region?
@@ -88,11 +91,11 @@ parser.add_argument('--debug', action='store_true',
 
 args = parser.parse_args()
 
-#Assign variables from command line arguments
+# Assign variables from command line arguments
 bucketname = args.bucketname
 minfileage = args.minfileage
 maxfileage = args.maxfileage
-bucketfolder  = args.bucketfolder
+bucketfolder = args.bucketfolder
 bucketfolder_regex = '^' + bucketfolder
 
 maxfilecount = 0
@@ -138,19 +141,21 @@ else:
 if (args.debug):
     print "Bucket: %s" % bucket
 
-#Figure out time delta between current time and max/min file age
-maxagetime = datetime.datetime.now(UTC()) - datetime.timedelta(hours=maxfileage)
+# Figure out time delta between current time and max/min file age
+maxagetime = datetime.datetime.now(
+    UTC()) - datetime.timedelta(hours=maxfileage)
 if (args.debug):
-    print  'MAX AGE TIME: ' + str(maxagetime)
+    print 'MAX AGE TIME: ' + str(maxagetime)
 
-minagetime = datetime.datetime.now(UTC()) - datetime.timedelta(hours=minfileage)
+minagetime = datetime.datetime.now(
+    UTC()) - datetime.timedelta(hours=minfileage)
 if (args.debug):
-    print  'MIN AGE TIME: ' + str(minagetime)
+    print 'MIN AGE TIME: ' + str(minagetime)
 
-#Loop through keys (files) in the S3 bucket and
-#check each one for min and max file age.
+# Loop through keys (files) in the S3 bucket and
+# check each one for min and max file age.
 for key in bucket.objects.all():
-    if (re.match(bucketfolder_regex,str(key.key))):
+    if (re.match(bucketfolder_regex, str(key.key))):
         if (args.listfiles):
             print '|' + str(key.storage_class) + '|' + str(key.name) + '|' \
                   + str(key.last_modified.replace(tzinfo=UTC()))
@@ -158,15 +163,15 @@ for key in bucket.objects.all():
             if (args.listfiles):
                 print 'Found file older than maxfileage of ' + str(maxfileage) + ' hours'
             maxfilecount += 1
-        #print key.__dict__
+        # print key.__dict__
         if key.last_modified > minagetime:
             if (args.listfiles):
                 print 'Found file newer than minfileage of ' + str(minfileage) + ' hours'
             minfilecount += 1
         totalfilecount += 1
 
-#Begin formatting status message for Nagios output
-#This is conditionally formatted based on requested min/max options.
+# Begin formatting status message for Nagios output
+# This is conditionally formatted based on requested min/max options.
 msg = ' -'
 if minfileage > 0:
     msg = msg + ' MIN:' + str(minfileage) + 'hrs'
@@ -174,15 +179,15 @@ if maxfileage > 0:
     msg = msg + ' MAX:' + str(maxfileage) + 'hrs'
 
 if maxfileage > 0:
-      msg = msg + ' - Files exceeding MAX time: ' + str(maxfilecount)
+    msg = msg + ' - Files exceeding MAX time: ' + str(maxfilecount)
 
 if minfileage > 0:
-      msg = msg + ' - Files meeting MIN time: ' + str(minfilecount)
+    msg = msg + ' - Files meeting MIN time: ' + str(minfilecount)
 
 msg = msg + ' - Total file count: ' + str(totalfilecount)
 
 
-#I think there probably is a better way of doing this but what I have here works.
+# I think there probably is a better way of doing this but what I have here works.
 #
 # Decide exit code for Nagios based on maxfilecount and minfilecount results.
 #
