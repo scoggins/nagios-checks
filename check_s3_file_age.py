@@ -31,21 +31,35 @@
 #    3 = UNKNOWN/purple
 #
 
-import ConfigParser
-import os
 import datetime
-import dateutil.parser
-from dateutil.tz import *
-import time
-import socket
-import boto
+from datetime import timedelta, tzinfo
+import botocore
+import boto3
 import argparse
 import re
+
+
+# A UTC class.
+ZERO = timedelta(0)
+class UTC(tzinfo):
+    """UTC"""
+
+    def utcoffset(self, dt):
+        return ZERO
+
+    def tzname(self, dt):
+        return "UTC"
+
+    def dst(self, dt):
+        return ZERO
 
 #Parse command line arguments
 parser = argparse.ArgumentParser(description='This script is a Nagios check that \
                                               monitors the age of files that have \
                                               been backed up to an S3 bucket.')
+
+parser.add_argument('--profile', dest='profile', type=str, required=False, default='default',
+                    help='AWS profile to use to connect')
 
 parser.add_argument('--bucketname', dest='bucketname', type=str, required=True,
                     help='Name of S3 bucket')
@@ -95,46 +109,57 @@ if (args.debug):
 if (args.debug):
     print "DEBUG: Connecting to S3"
 
-s3 = boto.connect_s3()
+session = boto3.session.Session(profile_name=args.profile)
+s3 = session.resource('s3')
 
 if (args.debug):
     print "DEBUG: S3 Connection: %s" % s3
 
 # Check if bucket exists. Exit with critical if it doesn't
-nonexistent = s3.lookup(bucketname)
-if nonexistent is None:
+bucket = s3.Bucket(bucketname)
+exists = True
+
+try:
+    s3.meta.client.head_bucket(Bucket=bucketname)
+except botocore.exceptions.ClientError as e:
+    # If a client error is thrown, then check that it was a 404 error.
+    # If it was a 404 error, then the bucket does not exist.
+    error_code = int(e.response['Error']['Code'])
+    if error_code == 404:
+        exists = False
+
+if exists is False:
     print "CRITICAL: No bucket found with a name of " + str(bucketname)
     exit(2)
 else:
     if (args.debug):
         print "DEBUG: Hooray the bucket " + str(bucketname) + " was found!"
 
-bucket = s3.get_bucket(bucketname)
 if (args.debug):
     print "Bucket: %s" % bucket
 
 #Figure out time delta between current time and max/min file age
-maxagetime = datetime.datetime.now(tzutc()) - datetime.timedelta(hours=maxfileage)
+maxagetime = datetime.datetime.now(UTC()) - datetime.timedelta(hours=maxfileage)
 if (args.debug):
     print  'MAX AGE TIME: ' + str(maxagetime)
 
-minagetime = datetime.datetime.now(tzutc()) - datetime.timedelta(hours=minfileage)
+minagetime = datetime.datetime.now(UTC()) - datetime.timedelta(hours=minfileage)
 if (args.debug):
     print  'MIN AGE TIME: ' + str(minagetime)
 
 #Loop through keys (files) in the S3 bucket and
 #check each one for min and max file age.
-for key in bucket.list(prefix=bucketfolder):
-    if (re.match(bucketfolder_regex,str(key.name))):
+for key in bucket.objects.all():
+    if (re.match(bucketfolder_regex,str(key.key))):
         if (args.listfiles):
             print '|' + str(key.storage_class) + '|' + str(key.name) + '|' \
-                  + str(dateutil.parser.parse(key.last_modified).replace(tzinfo=tzutc()))
-        if dateutil.parser.parse(key.last_modified) < maxagetime:
+                  + str(key.last_modified.replace(tzinfo=UTC()))
+        if key.last_modified < maxagetime:
             if (args.listfiles):
                 print 'Found file older than maxfileage of ' + str(maxfileage) + ' hours'
             maxfilecount += 1
         #print key.__dict__
-        if dateutil.parser.parse(key.last_modified) > minagetime:
+        if key.last_modified > minagetime:
             if (args.listfiles):
                 print 'Found file newer than minfileage of ' + str(minfileage) + ' hours'
             minfilecount += 1
@@ -191,4 +216,3 @@ else:
 
 print statusline
 exit(exitcode)
-
