@@ -154,7 +154,7 @@ if (args.debug):
 
 # Loop through keys (files) in the S3 bucket and
 # check each one for min and max file age.
-for key in bucket.objects.all():
+for key in bucket.objects.filter(Prefix=bucketfolder):
     if (re.match(bucketfolder_regex, str(key.key))):
         if (args.listfiles):
             print '|' + str(key.storage_class) + '|' + str(key.name) + '|' \
