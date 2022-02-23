@@ -103,20 +103,20 @@ minfilecount = 0
 totalfilecount = 0
 
 if (args.debug):
-    print '########## START DEBUG OUTPUT ############'
-    print 'DEBUG: S3 BUCKET NAME: ' + str(bucketname)
-    print 'DEBUG: MIN FILE AGE: ' + str(minfileage)
-    print 'DEBUG: MAX FILE AGE: ' + str(maxfileage)
+    print('########## START DEBUG OUTPUT ############')
+    print('DEBUG: S3 BUCKET NAME: ' + str(bucketname))
+    print('DEBUG: MIN FILE AGE: ' + str(minfileage))
+    print('DEBUG: MAX FILE AGE: ' + str(maxfileage))
 
 
 if (args.debug):
-    print "DEBUG: Connecting to S3"
+    print("DEBUG: Connecting to S3")
 
 session = boto3.session.Session(profile_name=args.profile)
 s3 = session.resource('s3')
 
 if (args.debug):
-    print "DEBUG: S3 Connection: %s" % s3
+    print("DEBUG: S3 Connection: %s" % s3)
 
 # Check if bucket exists. Exit with critical if it doesn't
 bucket = s3.Bucket(bucketname)
@@ -132,41 +132,41 @@ except botocore.exceptions.ClientError as e:
         exists = False
 
 if exists is False:
-    print "CRITICAL: No bucket found with a name of " + str(bucketname)
+    print("CRITICAL: No bucket found with a name of " + str(bucketname))
     exit(2)
 else:
     if (args.debug):
-        print "DEBUG: Hooray the bucket " + str(bucketname) + " was found!"
+        print("DEBUG: Hooray the bucket " + str(bucketname) + " was found!")
 
 if (args.debug):
-    print "Bucket: %s" % bucket
+    print("Bucket: %s" % bucket)
 
 # Figure out time delta between current time and max/min file age
 maxagetime = datetime.datetime.now(
     UTC()) - datetime.timedelta(hours=maxfileage)
 if (args.debug):
-    print 'MAX AGE TIME: ' + str(maxagetime)
+    print('MAX AGE TIME: ' + str(maxagetime))
 
 minagetime = datetime.datetime.now(
     UTC()) - datetime.timedelta(hours=minfileage)
 if (args.debug):
-    print 'MIN AGE TIME: ' + str(minagetime)
+    print('MIN AGE TIME: ' + str(minagetime))
 
 # Loop through keys (files) in the S3 bucket and
 # check each one for min and max file age.
 for key in bucket.objects.filter(Prefix=bucketfolder):
     if (re.match(bucketfolder_regex, str(key.key))):
         if (args.listfiles):
-            print '|' + str(key.storage_class) + '|' + str(key.name) + '|' \
-                  + str(key.last_modified.replace(tzinfo=UTC()))
+            print('|' + str(key.storage_class) + '|' + str(key.key) + '|' \
+                  + str(key.last_modified.replace(tzinfo=UTC())))
         if key.last_modified < maxagetime:
             if (args.listfiles):
-                print 'Found file older than maxfileage of ' + str(maxfileage) + ' hours'
+                print('Found file older than maxfileage of ' + str(maxfileage) + ' hours')
             maxfilecount += 1
-        # print key.__dict__
+        # print(key.__dict__)
         if key.last_modified > minagetime:
             if (args.listfiles):
-                print 'Found file newer than minfileage of ' + str(minfileage) + ' hours'
+                print('Found file newer than minfileage of ' + str(minfileage) + ' hours')
             minfilecount += 1
         totalfilecount += 1
 
@@ -219,5 +219,5 @@ else:
     statusline = 'UNKNOWN: ' + msg
     exitcode = 3
 
-print statusline
+print(statusline)
 exit(exitcode)
